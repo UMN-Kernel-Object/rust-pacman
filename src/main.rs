@@ -12,6 +12,7 @@ fn main() {
             // by linear filtering.
             ImagePlugin::default_nearest(),
         ))
+        // Add systems that should run once at the start of the application
         .add_systems(
             Startup,
             (
@@ -20,6 +21,7 @@ fn main() {
                 ghost::spawn_ghosts_system,
             ),
         )
+        // Add systems that should run every frame during the game's update loop
         .add_systems(
             Update,
             (player::move_player_system, ghost::ghost_attack_system),
