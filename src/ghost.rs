@@ -15,8 +15,22 @@ pub struct GhostComponent {
 
 // Enum to define different types of attack behaviors for ghosts
 pub enum AttackBehaviorType {
-    DirectPursuit, // Ghost directly pursues the player
-                   // Add new ghost behaviors here!
+    DirectPursuit,                                      // Ghost directly pursues the player
+    DirectPursuitWithBreak(DirectPursuitWithBreakData), // Add new ghost behaviors here!
+}
+
+pub struct DirectPursuitWithBreakData {
+    pub timer: Timer,
+    pub rest: bool,
+}
+
+impl DirectPursuitWithBreakData {
+    pub fn new(rest_time: f32) -> Self {
+        DirectPursuitWithBreakData {
+            timer: Timer::from_seconds(rest_time, TimerMode::Repeating),
+            rest: true,
+        }
+    }
 }
 
 // System function to spawn ghost entities in the game
@@ -24,7 +38,9 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
     // Spawn a red ghost with DirectPursuit behavior
     commands
         .spawn(GhostComponent {
-            attack_behavior: AttackBehaviorType::DirectPursuit,
+            attack_behavior: AttackBehaviorType::DirectPursuitWithBreak(
+                DirectPursuitWithBreakData::new(1.5),
+            ),
             speed: GHOST_SPEED,
         })
         .insert(SpriteBundle {
@@ -39,15 +55,16 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
 
 // System function to handle the attack behavior of ghosts
 pub fn ghost_attack_system(
-    mut ghost_query: Query<(&mut Transform, &GhostComponent), Without<PlayerComponent>>, // Query ghosts without the PlayerComponent
+    mut ghost_query: Query<(&mut Transform, &mut GhostComponent), Without<PlayerComponent>>, // Query ghosts without the PlayerComponent
     player_query: Query<&Transform, With<PlayerComponent>>, // Query the player's transform
+    time: Res<Time>,
 ) {
     // Check if a player entity exists
     if let Ok(player_transform) = player_query.get_single() {
         // Iterate over all ghost entities
-        for (mut ghost_transform, ghost_component) in ghost_query.iter_mut() {
+        for (mut ghost_transform, mut ghost_component) in ghost_query.iter_mut() {
             // Match ghost behaviors here!
-            match ghost_component.attack_behavior {
+            match &mut ghost_component.attack_behavior {
                 // If the ghost's attack behavior is DirectPursuit
                 AttackBehaviorType::DirectPursuit => {
                     // Calculate the direction and distance to move towards the player
@@ -58,6 +75,26 @@ pub fn ghost_attack_system(
 
                     // Update the ghost's position
                     ghost_transform.translation += delta_position;
+                }
+
+                // If the ghost's attack behavior is DirectPursuitWithBreak
+                AttackBehaviorType::DirectPursuitWithBreak(data) => {
+                    data.timer.tick(time.delta());
+
+                    if data.timer.just_finished() {
+                        data.rest = !data.rest;
+                    }
+
+                    if !data.rest {
+                        // Calculate the direction and distance to move towards the player
+                        let delta_position = (player_transform.translation
+                            - ghost_transform.translation)
+                            .normalize_or_zero()
+                            * ghost_component.speed;
+
+                        // Update the ghost's position
+                        ghost_transform.translation += delta_position;
+                    }
                 }
             }
         }
