@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 mod camera;
+mod ghost;
 mod player;
 
 fn main() {
@@ -13,8 +14,15 @@ fn main() {
         ))
         .add_systems(
             Startup,
-            (camera::spawn_camera_system, player::spawn_player_system),
+            (
+                camera::spawn_camera_system,
+                player::spawn_player_system,
+                ghost::spawn_ghosts_system,
+            ),
         )
-        .add_systems(Update, player::move_player_system)
+        .add_systems(
+            Update,
+            (player::move_player_system, ghost::ghost_attack_system),
+        )
         .run();
 }
