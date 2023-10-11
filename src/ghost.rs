@@ -16,6 +16,7 @@ pub struct GhostComponent {
 // Enum to define different types of attack behaviors for ghosts
 pub enum AttackBehaviorType {
     DirectPursuit, // Ghost directly pursues the player
+                   // Add new ghost behaviors here!
 }
 
 // System function to spawn ghost entities in the game
@@ -32,6 +33,8 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
                 .with_translation(Vec3::new(500.0, 0.0, 0.0)), // Set the scale and initial position of the ghost
             ..default()
         });
+
+    // Spawn additional ghosts here!
 }
 
 // System function to handle the attack behavior of ghosts
@@ -43,6 +46,7 @@ pub fn ghost_attack_system(
     if let Ok(player_transform) = player_query.get_single() {
         // Iterate over all ghost entities
         for (mut ghost_transform, ghost_component) in ghost_query.iter_mut() {
+            // Match ghost behaviors here!
             match ghost_component.attack_behavior {
                 // If the ghost's attack behavior is DirectPursuit
                 AttackBehaviorType::DirectPursuit => {
