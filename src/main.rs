@@ -15,5 +15,6 @@ fn main() {
             Startup,
             (camera::spawn_camera_system, player::spawn_player_system),
         )
+        .add_systems(Update, player::move_player_system)
         .run();
 }
