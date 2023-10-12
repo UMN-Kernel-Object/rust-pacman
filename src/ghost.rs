@@ -16,7 +16,10 @@ pub struct GhostComponent {
 // Enum to define different types of attack behaviors for ghosts
 pub enum AttackBehaviorType {
     DirectPursuit,                                      // Ghost directly pursues the player
-    DirectPursuitWithBreak(DirectPursuitWithBreakData), // Add new ghost behaviors here!
+    DirectPursuitWithBreak(DirectPursuitWithBreakData),
+    ShyPursuit,              
+    UpandDown(UpandDownWithBreakData),
+  // Add new ghost behaviors here!
 }
 
 pub struct DirectPursuitWithBreakData {
@@ -29,6 +32,22 @@ impl DirectPursuitWithBreakData {
         DirectPursuitWithBreakData {
             timer: Timer::from_seconds(rest_time, TimerMode::Repeating),
             rest: true,
+        }
+    }
+}
+
+
+pub struct UpandDownWithBreakData {
+    pub timer: Timer,
+    pub y_velocity: f32,
+}
+
+
+impl UpandDownWithBreakData {
+    pub fn new(y_velocity: f32) -> Self {
+        UpandDownWithBreakData {
+            y_velocity: y_velocity,
+            timer: Timer::from_seconds(2.0, TimerMode::Repeating),
         }
     }
 }
@@ -49,6 +68,33 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
                 .with_translation(Vec3::new(500.0, 0.0, 0.0)), // Set the scale and initial position of the ghost
             ..default()
         });
+        commands
+        .spawn(GhostComponent {
+            attack_behavior: AttackBehaviorType::ShyPursuit,
+            speed: GHOST_SPEED,
+        })
+        .insert(SpriteBundle {
+            texture: asset_server.load("brown_ghost.png"), // Load the red ghost texture
+            transform: Transform::from_scale(Vec3::splat(GHOST_SCALE))
+                .with_translation(Vec3::new(500.0, 0.0, 0.0)), // Set the scale and initial position of the ghost
+            ..default()
+        });
+
+        commands
+        .spawn(GhostComponent {
+            attack_behavior: AttackBehaviorType::UpandDown(
+                UpandDownWithBreakData::new(2.0),
+            ),
+            speed: GHOST_SPEED,
+        })
+        .insert(SpriteBundle {
+            texture: asset_server.load("pink_ghost.png"), // Load the red ghost texture
+            transform: Transform::from_scale(Vec3::splat(GHOST_SCALE))
+                .with_translation(Vec3::new(0.0, 500.0, 0.0)), // Set the scale and initial position of the ghost
+            ..default()
+        });
+        
+
 
     // Spawn additional ghosts here!
 }
@@ -75,6 +121,28 @@ pub fn ghost_attack_system(
 
                     // Update the ghost's position
                     ghost_transform.translation += delta_position;
+                },
+                AttackBehaviorType::UpandDown(data) => {
+                    data.timer.tick(time.delta());
+
+                    if data.timer.just_finished() {
+                        data.y_velocity *= -1.0;
+                    }
+
+                    ghost_transform.translation.y -= data.y_velocity;
+                }
+                AttackBehaviorType::ShyPursuit => {
+                    let mut delta_position: Vec3;
+                    if player_transform.translation.distance(ghost_transform.translation) < 250.0 {
+                        delta_position = -(player_transform.translation - ghost_transform.translation)
+                        .normalize_or_zero() * ghost_component.speed;
+                    }
+                    else {
+                        delta_position = (player_transform.translation - ghost_transform.translation)
+                        .normalize_or_zero() * ghost_component.speed;
+                    }
+                    ghost_transform.translation += delta_position;
+                    
                 }
 
                 // If the ghost's attack behavior is DirectPursuitWithBreak
