@@ -16,7 +16,25 @@ pub struct GhostComponent {
 // Enum to define different types of attack behaviors for ghosts
 pub enum AttackBehaviorType {
     DirectPursuit, // Ghost directly pursues the player
-    ShyPursuit,               // Add new ghost behaviors here!
+    ShyPursuit,              
+    UpandDown(UpandDownWithBreakData),
+   // Add new ghost behaviors here!
+}
+
+pub struct UpandDownWithBreakData {
+    pub timer: Timer,
+    pub y_velocity: f32,
+}
+
+
+impl UpandDownWithBreakData {
+    pub fn new(y_velocity: f32) -> Self {
+        UpandDownWithBreakData {
+            y_velocity: y_velocity,
+            timer: Timer::from_seconds(2.0, TimerMode::Repeating),
+        }
+
+    }
 }
 
 // System function to spawn ghost entities in the game
@@ -45,20 +63,37 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
             ..default()
         });
 
+        commands
+        .spawn(GhostComponent {
+            attack_behavior: AttackBehaviorType::UpandDown(
+                UpandDownWithBreakData::new(2.0),
+            ),
+            speed: GHOST_SPEED,
+        })
+        .insert(SpriteBundle {
+            texture: asset_server.load("pink_ghost.png"), // Load the red ghost texture
+            transform: Transform::from_scale(Vec3::splat(GHOST_SCALE))
+                .with_translation(Vec3::new(0.0, 500.0, 0.0)), // Set the scale and initial position of the ghost
+            ..default()
+        });
+        
+
+
     // Spawn additional ghosts here!
 }
 
 // System function to handle the attack behavior of ghosts
 pub fn ghost_attack_system(
-    mut ghost_query: Query<(&mut Transform, &GhostComponent), Without<PlayerComponent>>, // Query ghosts without the PlayerComponent
+    mut ghost_query: Query<(&mut Transform, &mut GhostComponent), Without<PlayerComponent>>, // Query ghosts without the PlayerComponent
     player_query: Query<&Transform, With<PlayerComponent>>, // Query the player's transform
+    time: Res<Time>,
 ) {
     // Check if a player entity exists
     if let Ok(player_transform) = player_query.get_single() {
         // Iterate over all ghost entities
-        for (mut ghost_transform, ghost_component) in ghost_query.iter_mut() {
+        for (mut ghost_transform, mut ghost_component) in ghost_query.iter_mut() {
             // Match ghost behaviors here!
-            match ghost_component.attack_behavior {
+            match &mut ghost_component.attack_behavior {
                 // If the ghost's attack behavior is DirectPursuit
                 AttackBehaviorType::DirectPursuit => {
                     // Calculate the direction and distance to move towards the player
@@ -69,6 +104,15 @@ pub fn ghost_attack_system(
 
                     // Update the ghost's position
                     ghost_transform.translation += delta_position;
+                },
+                AttackBehaviorType::UpandDown(data) => {
+                    data.timer.tick(time.delta());
+
+                    if data.timer.just_finished() {
+                        data.y_velocity *= -1.0;
+                    }
+
+                    ghost_transform.translation.y -= data.y_velocity;
                 }
                 AttackBehaviorType::ShyPursuit => {
                     let mut delta_position: Vec3;
