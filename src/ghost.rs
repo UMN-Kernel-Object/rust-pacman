@@ -19,7 +19,59 @@ pub enum AttackBehaviorType {
     DirectPursuitWithBreak(DirectPursuitWithBreakData),
     ShyPursuit,              
     UpandDown(UpandDownWithBreakData),
+    CirclePursuit(CirclePursuitData),
   // Add new ghost behaviors here!
+}
+
+
+pub struct CirclePursuitData {
+    // angle: where around the player the ghost is
+    pub angle: f32,
+    // how far away the ghost starts from the player
+    pub base_radius: f32,
+    // used for the sinusoidal movement, how far away the peaks of the wave
+    // are from the base radius
+    pub radius_delta: f32,
+    // how much to modify the angle when calculating the radius at timestep
+    pub angle_rad_mod: f32,
+    // functions to better control ghosts moving in different circle patterns
+    pub x_angle_func: fn(f32)->f32,
+    pub y_angle_func: fn(f32)->f32,
+    pub rad_angle_func: fn(f32)->f32,
+}
+
+impl CirclePursuitData {
+    pub fn new(
+        a: f32, br: f32, rd: f32, arm: f32, 
+        xaf: fn(f32)->f32, yaf: fn(f32)->f32, raf: fn(f32)->f32
+    ) -> Self { 
+        Self { 
+            angle: a, base_radius: br, 
+            radius_delta: rd, angle_rad_mod: arm, 
+            x_angle_func: xaf, y_angle_func: yaf, 
+            rad_angle_func: raf 
+        } 
+    }
+
+    pub fn update_angle(&mut self, dt: f32) {
+        let two_pi = std::f32::consts::PI * 2.0;
+        let flag: f32 = (self.angle >= two_pi).into();
+        // cap data.angle into range between 0 and 2pi
+        // don't want data.angle to get too big and lose precision
+        self.angle -= flag * two_pi;
+        self.angle += GHOST_SPEED * dt;
+    }
+
+    pub fn update_transform(&self, pt: &Vec3, gt: &mut Vec3) {
+        // get radius in a sinusoidal pattern
+        let radius = self.base_radius + (
+            (self.rad_angle_func)(self.angle*self.angle_rad_mod) * 
+            self.radius_delta
+        );
+
+        gt.x = pt.x + (self.x_angle_func)(self.angle) * radius;
+        gt.y = pt.y + (self.y_angle_func)(self.angle) * radius;
+    }
 }
 
 pub struct DirectPursuitWithBreakData {
@@ -36,12 +88,10 @@ impl DirectPursuitWithBreakData {
     }
 }
 
-
 pub struct UpandDownWithBreakData {
     pub timer: Timer,
     pub y_velocity: f32,
 }
-
 
 impl UpandDownWithBreakData {
     pub fn new(y_velocity: f32) -> Self {
@@ -68,7 +118,7 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
                 .with_translation(Vec3::new(500.0, 0.0, 0.0)), // Set the scale and initial position of the ghost
             ..default()
         });
-        commands
+    commands
         .spawn(GhostComponent {
             attack_behavior: AttackBehaviorType::ShyPursuit,
             speed: GHOST_SPEED,
@@ -80,7 +130,7 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
             ..default()
         });
 
-        commands
+    commands
         .spawn(GhostComponent {
             attack_behavior: AttackBehaviorType::UpandDown(
                 UpandDownWithBreakData::new(2.0),
@@ -93,7 +143,22 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
                 .with_translation(Vec3::new(0.0, 500.0, 0.0)), // Set the scale and initial position of the ghost
             ..default()
         });
-        
+    commands
+        .spawn(GhostComponent {
+            attack_behavior: AttackBehaviorType::CirclePursuit(
+                CirclePursuitData::new(
+                    0.0, 200.0, 50.0, 3.0,
+                    f32::cos, f32::sin, f32::sin
+                ),
+            ),
+            speed: GHOST_SPEED,
+        })
+        .insert(SpriteBundle {
+            texture: asset_server.load("purple_ghost.png"), // Load the red ghost texture
+            transform: Transform::from_scale(Vec3::splat(GHOST_SCALE))
+                .with_translation(Vec3::new(0.0, 500.0, 0.0)), // Set the scale and initial position of the ghost
+            ..default()
+        });
 
 
     // Spawn additional ghosts here!
@@ -130,7 +195,7 @@ pub fn ghost_attack_system(
                     }
 
                     ghost_transform.translation.y -= data.y_velocity;
-                }
+                },
                 AttackBehaviorType::ShyPursuit => {
                     let mut delta_position: Vec3;
                     if player_transform.translation.distance(ghost_transform.translation) < 250.0 {
@@ -143,7 +208,7 @@ pub fn ghost_attack_system(
                     }
                     ghost_transform.translation += delta_position;
                     
-                }
+                },
 
                 // If the ghost's attack behavior is DirectPursuitWithBreak
                 AttackBehaviorType::DirectPursuitWithBreak(data) => {
@@ -163,7 +228,15 @@ pub fn ghost_attack_system(
                         // Update the ghost's position
                         ghost_transform.translation += delta_position;
                     }
-                }
+                },
+
+                AttackBehaviorType::CirclePursuit(data) => {
+                    data.update_angle(time.delta_seconds());
+                    data.update_transform(
+                        &player_transform.translation, 
+                        &mut ghost_transform.translation
+                    );
+                },
             }
         }
     } else {
