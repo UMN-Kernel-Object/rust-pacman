@@ -16,7 +16,7 @@ pub struct GhostComponent {
 // Enum to define different types of attack behaviors for ghosts
 pub enum AttackBehaviorType {
     DirectPursuit, // Ghost directly pursues the player
-                   // Add new ghost behaviors here!
+    ShyPursuit,               // Add new ghost behaviors here!
 }
 
 // System function to spawn ghost entities in the game
@@ -29,6 +29,17 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
         })
         .insert(SpriteBundle {
             texture: asset_server.load("red_ghost.png"), // Load the red ghost texture
+            transform: Transform::from_scale(Vec3::splat(GHOST_SCALE))
+                .with_translation(Vec3::new(500.0, 0.0, 0.0)), // Set the scale and initial position of the ghost
+            ..default()
+        });
+        commands
+        .spawn(GhostComponent {
+            attack_behavior: AttackBehaviorType::ShyPursuit,
+            speed: GHOST_SPEED,
+        })
+        .insert(SpriteBundle {
+            texture: asset_server.load("brown_ghost.png"), // Load the red ghost texture
             transform: Transform::from_scale(Vec3::splat(GHOST_SCALE))
                 .with_translation(Vec3::new(500.0, 0.0, 0.0)), // Set the scale and initial position of the ghost
             ..default()
@@ -58,6 +69,19 @@ pub fn ghost_attack_system(
 
                     // Update the ghost's position
                     ghost_transform.translation += delta_position;
+                }
+                AttackBehaviorType::ShyPursuit => {
+                    let mut delta_position: Vec3;
+                    if player_transform.translation.distance(ghost_transform.translation) < 250.0 {
+                        delta_position = -(player_transform.translation - ghost_transform.translation)
+                        .normalize_or_zero() * ghost_component.speed;
+                    }
+                    else {
+                        delta_position = (player_transform.translation - ghost_transform.translation)
+                        .normalize_or_zero() * ghost_component.speed;
+                    }
+                    ghost_transform.translation += delta_position;
+                    
                 }
             }
         }
