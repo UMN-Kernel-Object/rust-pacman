@@ -63,12 +63,13 @@ impl CirclePursuitData {
     }
 
     pub fn update_transform(&self, pt: &Vec3, gt: &mut Vec3) {
-        // get radius in a sinusoidal pattern
+        // get radius using given function
         let radius = self.base_radius + (
             (self.rad_angle_func)(self.angle*self.angle_rad_mod) * 
             self.radius_delta
         );
 
+        // update position using given x and y funcs and computer radius
         gt.x = pt.x + (self.x_angle_func)(self.angle) * radius;
         gt.y = pt.y + (self.y_angle_func)(self.angle) * radius;
     }
