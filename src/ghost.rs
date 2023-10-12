@@ -15,11 +15,27 @@ pub struct GhostComponent {
 
 // Enum to define different types of attack behaviors for ghosts
 pub enum AttackBehaviorType {
-    DirectPursuit, // Ghost directly pursues the player
+    DirectPursuit,                                      // Ghost directly pursues the player
+    DirectPursuitWithBreak(DirectPursuitWithBreakData),
     ShyPursuit,              
     UpandDown(UpandDownWithBreakData),
-   // Add new ghost behaviors here!
+  // Add new ghost behaviors here!
 }
+
+pub struct DirectPursuitWithBreakData {
+    pub timer: Timer,
+    pub rest: bool,
+}
+
+impl DirectPursuitWithBreakData {
+    pub fn new(rest_time: f32) -> Self {
+        DirectPursuitWithBreakData {
+            timer: Timer::from_seconds(rest_time, TimerMode::Repeating),
+            rest: true,
+        }
+    }
+}
+
 
 pub struct UpandDownWithBreakData {
     pub timer: Timer,
@@ -33,7 +49,6 @@ impl UpandDownWithBreakData {
             y_velocity: y_velocity,
             timer: Timer::from_seconds(2.0, TimerMode::Repeating),
         }
-
     }
 }
 
@@ -42,7 +57,9 @@ pub fn spawn_ghosts_system(mut commands: Commands, asset_server: Res<AssetServer
     // Spawn a red ghost with DirectPursuit behavior
     commands
         .spawn(GhostComponent {
-            attack_behavior: AttackBehaviorType::DirectPursuit,
+            attack_behavior: AttackBehaviorType::DirectPursuitWithBreak(
+                DirectPursuitWithBreakData::new(1.5),
+            ),
             speed: GHOST_SPEED,
         })
         .insert(SpriteBundle {
@@ -126,6 +143,26 @@ pub fn ghost_attack_system(
                     }
                     ghost_transform.translation += delta_position;
                     
+                }
+
+                // If the ghost's attack behavior is DirectPursuitWithBreak
+                AttackBehaviorType::DirectPursuitWithBreak(data) => {
+                    data.timer.tick(time.delta());
+
+                    if data.timer.just_finished() {
+                        data.rest = !data.rest;
+                    }
+
+                    if !data.rest {
+                        // Calculate the direction and distance to move towards the player
+                        let delta_position = (player_transform.translation
+                            - ghost_transform.translation)
+                            .normalize_or_zero()
+                            * ghost_component.speed;
+
+                        // Update the ghost's position
+                        ghost_transform.translation += delta_position;
+                    }
                 }
             }
         }
