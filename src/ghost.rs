@@ -190,13 +190,16 @@ pub fn ghost_attack_system(
                 // If the ghost's attack behavior is DirectPursuit
                 AttackBehaviorType::DirectPursuit => {
                     // Calculate the direction and distance to move towards the player
-                    let delta_position = (player_transform.translation
+                    if (player_transform.translation.distance_squared(ghost_transform.translation)) > 10.0 {
+                        let delta_position = (player_transform.translation
                         - ghost_transform.translation)
                         .normalize_or_zero()
                         * ghost_component.speed;
 
                     // Update the ghost's position
                     ghost_transform.translation += delta_position;
+                    }
+                    
                 },
                 AttackBehaviorType::UpandDown(data) => {
                     data.timer.tick(time.delta());
@@ -209,13 +212,16 @@ pub fn ghost_attack_system(
                 },
                 AttackBehaviorType::ShyPursuit => {
                     let mut delta_position: Vec3;
-                    if player_transform.translation.distance(ghost_transform.translation) < 250.0 {
+                    let distance = player_transform.translation.distance_squared(ghost_transform.translation);
+                    if distance < 40000.0 {
                         delta_position = -(player_transform.translation - ghost_transform.translation)
+                        .normalize_or_zero() * ghost_component.speed;
+                    } else if distance > 44100.0 {
+                        delta_position = (player_transform.translation - ghost_transform.translation)
                         .normalize_or_zero() * ghost_component.speed;
                     }
                     else {
-                        delta_position = (player_transform.translation - ghost_transform.translation)
-                        .normalize_or_zero() * ghost_component.speed;
+                        delta_position = Vec3::new(0.0,0.0,0.0);
                     }
                     ghost_transform.translation += delta_position;
                     
