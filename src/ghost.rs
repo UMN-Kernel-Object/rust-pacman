@@ -53,13 +53,13 @@ impl CirclePursuitData {
         } 
     }
 
-    pub fn update_angle(&mut self, dt: f32) {
+    pub fn update_angle(&mut self, speed: f32, dt: f32) {
         let two_pi = std::f32::consts::PI * 2.0;
         let flag: f32 = (self.angle >= two_pi).into();
         // cap data.angle into range between 0 and 2pi
         // don't want data.angle to get too big and lose precision
         self.angle -= flag * two_pi;
-        self.angle += GHOST_SPEED * dt;
+        self.angle += speed * dt;
     }
 
     pub fn update_transform(&self, pt: &Vec3, gt: &mut Vec3) {
@@ -69,7 +69,7 @@ impl CirclePursuitData {
             self.radius_delta
         );
 
-        // update position using given x and y funcs and computer radius
+        // update position using given x and y funcs and computed radius
         gt.x = pt.x + (self.x_angle_func)(self.angle) * radius;
         gt.y = pt.y + (self.y_angle_func)(self.angle) * radius;
     }
@@ -174,7 +174,17 @@ pub fn ghost_attack_system(
     // Check if a player entity exists
     if let Ok(player_transform) = player_query.get_single() {
         // Iterate over all ghost entities
-        for (mut ghost_transform, mut ghost_component) in ghost_query.iter_mut() {
+        for (mut ghost_transform, ghost_component) in ghost_query.iter_mut() {
+            /*
+                Mut<'_, GhostComponent> type of ghost_component gives some issues
+                    because of not being able to borrow multiple fields when the 
+                    struct is wrapped in another type, which doesn't allow values 
+                    of ghost_component to be easily passed around. (i.e. line 245)
+                The below line converts ghost_component to &mut GhostComponent
+                    to get around this while not affecting anyone's code.
+                https://bevy-cheatbook.github.io/pitfalls/split-borrows.html 
+             */ 
+            let ghost_component = ghost_component.into_inner();
             // Match ghost behaviors here!
             match &mut ghost_component.attack_behavior {
                 // If the ghost's attack behavior is DirectPursuit
@@ -232,7 +242,9 @@ pub fn ghost_attack_system(
                 },
 
                 AttackBehaviorType::CirclePursuit(data) => {
-                    data.update_angle(time.delta_seconds());
+                    data.update_angle(
+                        ghost_component.speed, time.delta_seconds()
+                    );
                     data.update_transform(
                         &player_transform.translation, 
                         &mut ghost_transform.translation
